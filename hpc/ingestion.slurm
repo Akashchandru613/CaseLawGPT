@@ -16,7 +16,7 @@ module load python/3.11             # adjust to your cluster's module name
 
 source "$HOME/caselawgpt-env/bin/activate"
 
-export CL_TOKEN="YOUR_COURTLISTENER_TOKEN_HERE"
+export CL_TOKEN=a2860c163191bec342ee49976aa8c9511fdfa1d7
 
 echo "Downloading cases..."
 python scripts/download_courtlistener.py \
