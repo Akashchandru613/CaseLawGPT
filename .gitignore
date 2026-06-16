@@ -8,10 +8,11 @@ __pycache__/
 venv/
 ENV/
 
-# Data files (too large for git)
+# Raw downloaded cases (large, rebuildable)
 data/raw_cases/
-data/vectorstore/
-*.db
+
+# Keep vectorstore and DB tracked for deployment
+# data/vectorstore/ and data/caselaw.db are intentionally committed
 
 # IDE
 .vscode/
