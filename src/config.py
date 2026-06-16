@@ -32,6 +32,11 @@ EMBEDDING_MODEL_NAME = os.getenv(
     "sentence-transformers/all-MiniLM-L6-v2",
 )
 
+LLM_BACKEND = os.getenv("LLM_BACKEND", "ollama")  # "ollama" or "groq"
+
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:14b")
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
+
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 

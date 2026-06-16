@@ -1,27 +1,22 @@
 """
 LLM integration for CaseLawGPT.
 
-Provides answer generation using Groq API.
+Supports two backends, selected via LLM_BACKEND env var:
+  - "ollama" (default): local model via Ollama, works on GPU-equipped HPC
+  - "groq": cloud API, works on any machine without GPU
 """
 from __future__ import annotations
 
-import os
 from typing import List
 
-from groq import Groq
+import requests
 
-from src.config import GROQ_API_KEY, GROQ_MODEL, MAX_GENERATION_TOKENS
-
-
-def _get_client() -> Groq:
-    key = GROQ_API_KEY or os.getenv("GROQ_API_KEY", "")
-    if not key:
-        try:
-            import streamlit as st
-            key = st.secrets.get("GROQ_API_KEY", "")
-        except Exception:
-            pass
-    return Groq(api_key=key)
+from src.config import (
+    LLM_BACKEND,
+    OLLAMA_MODEL, OLLAMA_URL,
+    GROQ_API_KEY, GROQ_MODEL,
+    MAX_GENERATION_TOKENS,
+)
 
 
 def build_prompt(question: str, context_chunks: List[str]) -> str:
@@ -29,7 +24,6 @@ def build_prompt(question: str, context_chunks: List[str]) -> str:
         f"[{i + 1}] {chunk}"
         for i, chunk in enumerate(context_chunks)
     )
-
     return f"""You are CaseLawGPT, a legal research assistant. Answer questions using ONLY the provided case excerpts.
 
 RULES:
@@ -46,11 +40,44 @@ QUESTION: {question}
 ANSWER:"""
 
 
-def generate_answer(question: str, context_chunks: List[str]) -> str:
-    prompt = build_prompt(question, context_chunks)
-
+def _generate_ollama(prompt: str) -> str:
     try:
-        client = _get_client()
+        response = requests.post(
+            f"{OLLAMA_URL}/api/generate",
+            json={
+                "model": OLLAMA_MODEL,
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "temperature": 0.3,
+                    "num_predict": MAX_GENERATION_TOKENS,
+                },
+            },
+            timeout=120,
+        )
+        response.raise_for_status()
+        return response.json().get("response", "").strip()
+    except requests.exceptions.ConnectionError:
+        return "**Error:** Cannot connect to Ollama. Run `ollama serve` first."
+    except requests.exceptions.Timeout:
+        return "**Error:** Request timed out. Try again."
+    except Exception as e:
+        return f"**Error:** {e}"
+
+
+def _generate_groq(prompt: str) -> str:
+    try:
+        from groq import Groq
+
+        key = GROQ_API_KEY
+        if not key:
+            try:
+                import streamlit as st
+                key = st.secrets.get("GROQ_API_KEY", "")
+            except Exception:
+                pass
+
+        client = Groq(api_key=key)
         response = client.chat.completions.create(
             model=GROQ_MODEL,
             messages=[{"role": "user", "content": prompt}],
@@ -58,6 +85,12 @@ def generate_answer(question: str, context_chunks: List[str]) -> str:
             temperature=0.3,
         )
         return response.choices[0].message.content.strip()
-
     except Exception as e:
         return f"**Error:** {e}"
+
+
+def generate_answer(question: str, context_chunks: List[str]) -> str:
+    prompt = build_prompt(question, context_chunks)
+    if LLM_BACKEND == "groq":
+        return _generate_groq(prompt)
+    return _generate_ollama(prompt)
